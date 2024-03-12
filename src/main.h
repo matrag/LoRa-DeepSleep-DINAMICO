@@ -3,6 +3,8 @@
 #include <SPI.h>
 #include <Wire.h>
 
+#include <Adafruit_SleepyDog.h>
+
 //BME functions
 	#include <Adafruit_Sensor.h>
 	#include <Adafruit_BME680.h>
@@ -54,7 +56,7 @@
 //default wait time for prints and stuff
 	#define DEFWAIT 10
 //wait for RAD node (ms)
-	#define RAD_WAIT 10000 //660000
+	#define RAD_WAIT 660000
 
 //chain elements definitions
 	//node IDentifier

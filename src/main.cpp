@@ -155,10 +155,13 @@ void setup()
 		taskWakeupTimer.begin(SLEEP_TIME_RAD, periodicWakeup);
 	#endif
 
+	uint32_t wdtMS = Watchdog.enable(10000); //enable watchdog for MS
+    myLog_d("Enabled the watchdog with max countdown of %i", wdtMS);
+
 	taskWakeupTimer.start();
 
 	// Give Serial some time to send everything
-	delay(300);
+	delay(100);
 	//Turn off i2c sensors
 	digitalWrite(WB_IO2,0);
 }
@@ -168,6 +171,7 @@ void loop()
 	// Sleep until we are woken up by an event
 	if (xSemaphoreTake(taskEvent, portMAX_DELAY) == pdTRUE)
 	{
+	Watchdog.reset(); // Reset watchdog with every loop to make sure the sketch keeps running.
 	// Switch on green LED to show we are awake
 	#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE
 			digitalWrite(LED_BUILTIN, HIGH);
