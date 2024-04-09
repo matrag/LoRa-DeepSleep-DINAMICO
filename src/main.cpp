@@ -139,7 +139,7 @@ void setup()
   	if (initACC())
 		myLog_d("Init acc success");
 
-	initRTC();
+	//initRTC();
 
 	// Now we are connected, start the timer that will wakeup the loop frequently
 	myLog_d("Start Wakeup Timer");
@@ -291,9 +291,9 @@ void handleLoopActions(){
 
 	txPayload.sentPackets = nodeSentPackets;
 	txPayload.receivedPackets = nodeReceivedPackets;
-	txPayload.nodeUnixTime = rtc.getUnixTime();
-	myLog_d("Unix time: %li", rtc.getUnixTime());
-	Serial.println(rtc.getUnixTime());
+	//txPayload.nodeUnixTime = rtc.getUnixTime();
+	//myLog_d("Unix time: %li", rtc.getUnixTime());
+	//Serial.println(rtc.getUnixTime());
 
 	digitalWrite(WB_IO2,0); //Turn off sensor supply (GDK off)
 }

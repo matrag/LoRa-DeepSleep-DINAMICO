@@ -164,7 +164,7 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 		else write to debug message*/
 		if (receivedPldPrevID == (NODEID-1) ) 
 		{
-			pldWrap.wrSize = size; //update wrapper size with received packet size
+					
 			#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE //Print payload to debug
 				myLog_d("received package from node ID %i", receivedPldPrevID);
 				myLog_d("Copying %i bytes into the PldArray!", size);
@@ -183,12 +183,15 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 				myLog_d(rcvdData);
 				delay(DEFWAIT);	
 			#endif
+			/*
+			pldWrap.wrSize = size; //update wrapper size with received packet size
 			//copy received payload 
 			memcpy(&PldArray[0], payload, size); 
 			
 			//fill received package metadata
 			txPayload.rssi_last = -1 * rssi;
 			txPayload.snr_last = snr;
+			*/
 		}
 		else 
 		{

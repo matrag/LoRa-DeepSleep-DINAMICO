@@ -60,7 +60,7 @@
 
 //chain elements definitions
 	//node IDentifier
-	#define NODEID 1
+	#define NODEID 3
 	// LoRa stuff
 	#if NODEID == 1 	//check if the node is a relay or not
 		#define TX_ONLY
@@ -68,7 +68,7 @@
 		#define IS_CHAIN_ELEMENT //UNCOMMENT if the node is a chain element (excl. first  node)
 	#endif
 
-	//#define RAD_NODE //define if the node is a radiation monitor or normal node
+	#define RAD_NODE //define if the node is a radiation monitor or normal node
 
 	/* Time the device is sleeping in milliseconds for chain elements */
 	#define SLEEP_TIME_CHAIN 600 * 1000
@@ -92,7 +92,7 @@ struct __attribute__((packed)) TxdPayload{
 		uint8_t snr_last = 255;
 		uint16_t sentPackets;
 		uint16_t receivedPackets;
-		uint32_t nodeUnixTime;
+		//uint32_t nodeUnixTime;
 	};
 
 //Payload Array
