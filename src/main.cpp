@@ -10,7 +10,6 @@
  */
 #include "main.h"
 
-
 /** Semaphore used by events to wake up loop task */
 SemaphoreHandle_t taskEvent = NULL;
 /** Timer to wakeup task frequently and send message */
@@ -26,12 +25,6 @@ TxdPayload PldArray [NODEID] = {};
 PldWrapper pldWrap;
 uint16_t nodeSentPackets = 0;
 uint16_t nodeReceivedPackets = 0;
-
-//A0 Short, A1 Short : 0x18
-//A0 Open,  A1 Short : 0x19
-//A0 Short, A1 Open  : 0x1A
-//A0 Open,  A1 Open  : 0x1B
-
 
 /**
  * @brief Flag for the event type
@@ -171,12 +164,12 @@ void loop()
 	// Sleep until we are woken up by an event
 	if (xSemaphoreTake(taskEvent, portMAX_DELAY) == pdTRUE)
 	{
-	Watchdog.reset(); // Reset watchdog with every loop to make sure the sketch keeps running.
-	// Switch on green LED to show we are awake
-	#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE
-			digitalWrite(LED_BUILTIN, HIGH);
-			delay(500); // Only so we can see the green LED
-	#endif
+		Watchdog.reset(); // Reset watchdog with every loop to make sure the code keeps running.
+		
+		#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE	// Switch on green LED to show we are awake
+				digitalWrite(LED_BUILTIN, HIGH);
+				delay(500); // Only so we can see the green LED
+		#endif
 
 		// Check the wake up reason
 		switch (eventType)
@@ -198,15 +191,9 @@ void loop()
 
 			#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE 
 				myLog_d("Payload filled in loop: ");
-				char rcvdData[pldWrap.wrSize * 4] = {0};
 				uint8_t PldPrintBuffer [pldWrap.wrSize] = {0};
 				memcpy(PldPrintBuffer, &PldArray[0], pldWrap.wrSize);
-				int index = 0;
-				for (int idx = 0; idx < pldWrap.wrSize * 3; idx += 3)
-				{
-					sprintf(&rcvdData[idx], "%02x ", PldPrintBuffer[index++]);
-				}
-				myLog_d(rcvdData);
+				printPayloads(PldPrintBuffer, pldWrap.wrSize);
 				delay(DEFWAIT);	
 			#endif
 
@@ -215,25 +202,15 @@ void loop()
 			#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE 
 				myLog_d("Payload copied in wrapper: ");
 				memcpy(PldPrintBuffer, pldWrap.wrBuffer, pldWrap.wrSize);
-				index = 0;
-				for (int idx = 0; idx < (pldWrap.wrSize * 3); idx += 3)
-				{
-					sprintf(&rcvdData[idx], "%02x ", PldPrintBuffer[index++]);
-				}
-				myLog_d(rcvdData);
-				delay(DEFWAIT);	
+				printPayloads(PldPrintBuffer, pldWrap.wrSize);
+				myLog_d("Initiate sending");	
+				delay(DEFWAIT);
 			#endif
+
 			// Send the data package
-			myLog_d("Initiate sending");
-
-			// #if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE
-			// 	//sprintf(&rcvdData[0], "%i", PldArray[NODEID-1].pckLength);
-			// 	//myLog_d("last packet received Length: %d", PldArray[NODEID-1].pckLength ); 
-			// 	myLog_d("last packet received RSSI: -%d dBm", PldArray[NODEID-1].rssi_last );
-			// 	myLog_d("last packet received snr: %d dB", PldArray[NODEID-1].snr_last );
-			// 	delay(DEFWAIT);
-			// #endif
-
+			#ifdef ENCRYPT
+				stream_cipher((char*)pldWrap.wrBuffer, KEY, pldWrap.wrSize ); //encrypt data
+			#endif
 			sendLoRa();
 			break;
 		}
@@ -244,12 +221,13 @@ void loop()
 		}
 
 		myLog_d("Loop goes back to sleep.\n");
+		//accLowPower();
 		// Go back to sleep - take the loop semaphore
 		xSemaphoreTake(taskEvent, 10);
 
-	#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE
-			digitalWrite(LED_BUILTIN, LOW);
-	#endif
+		#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE
+				digitalWrite(LED_BUILTIN, LOW);
+		#endif
 	}
 }
 
@@ -296,4 +274,15 @@ void handleLoopActions(){
 	//Serial.println(rtc.getUnixTime());
 
 	digitalWrite(WB_IO2,0); //Turn off sensor supply (GDK off)
+}
+
+void printPayloads(uint8_t *payload, int size){
+	char rcvdData[256 * 4] = {0};
+	int index = 0;
+	for (int idx = 0; idx < (size * 3); idx += 3)
+	{
+		//sprintf(&rcvdData[idx], "%02X ", payload[index++]); //print in hex with leading zeros
+		sprintf(&rcvdData[idx], "%02x ", payload[index++]);
+	}
+	myLog_d(rcvdData);
 }

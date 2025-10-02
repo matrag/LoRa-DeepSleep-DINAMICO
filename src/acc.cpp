@@ -125,6 +125,23 @@ void clearAccInt(void)
 		Serial.println("X low");
 }
 
+void accLowPower(){ // Set low power mode
+	#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE
+		myLog_d("Set acc in Low power mode");
+		delay(DEFWAIT);
+	#endif
+	uint8_t data_to_write= 0;
+	accSensor.readRegister(&data_to_write, LIS3DH_CTRL_REG1);
+	data_to_write |= 0x08;
+	accSensor.writeRegister(LIS3DH_CTRL_REG1, data_to_write);
+	delay(100);
+	data_to_write = 0;
+	accSensor.readRegister(&data_to_write, 0x1E);
+	data_to_write |= 0x90;
+	accSensor.writeRegister(0x1E, data_to_write);
+	delay(100);
+}
+
 //Calculate tilt along axes
 void calculateTilt(float xacc, float yacc, float zacc, uint8_t * xinc, uint8_t * yinc, uint8_t * zinc){
 	*xinc = (180/PI)*atan2( xacc, sqrt( pow(yacc,2) + pow(zacc,2) ) );

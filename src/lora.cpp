@@ -11,30 +11,44 @@
 
 #include "main.h"
 
-// LoRa transmission settings
-#define RF_FREQUENCY 869525000	// Hz
+// // LoRa transmission settings
+// #define RF_FREQUENCY 869525000	// Hz
+// #define TX_OUTPUT_POWER 17		// dBm
+// #define LORA_BANDWIDTH 0		// 0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved
+// #define LORA_SPREADING_FACTOR 7 // SF7..SF12
+// #define LORA_CODINGRATE 1		// 1: 4/5, 2: 4/6, 3: 4/7, 4: 4/8
+// #define LORA_PREAMBLE_LENGTH 585	// Same for Tx and Rx
+// #define LORA_SYMBOL_TIMEOUT 0	// Symbols
+// #define LORA_FIX_LENGTH_PAYLOAD_ON false
+// #define LORA_IQ_INVERSION_ON false
+// #define TX_TIMEOUT_VALUE 5000
+
+// Define LoRa parameters
+#define RF_FREQUENCY 868300000	// Hz
 #define TX_OUTPUT_POWER 22		// dBm
-#define LORA_BANDWIDTH 0		// 0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved
-#define LORA_SPREADING_FACTOR 7 // SF7..SF12
-#define LORA_CODINGRATE 1		// 1: 4/5, 2: 4/6, 3: 4/7, 4: 4/8
-#define LORA_PREAMBLE_LENGTH 342	// Same for Tx and Rx
+#define LORA_BANDWIDTH 0		// [0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved]
+#define LORA_SPREADING_FACTOR 7 // [SF7..SF12]
+#define LORA_CODINGRATE 1		// [1: 4/5, 2: 4/6,  3: 4/7,  4: 4/8]
+#define LORA_PREAMBLE_LENGTH 8	// Same for Tx and Rx
 #define LORA_SYMBOL_TIMEOUT 0	// Symbols
 #define LORA_FIX_LENGTH_PAYLOAD_ON false
 #define LORA_IQ_INVERSION_ON false
-#define TX_TIMEOUT_VALUE 5000
-
-#define TSYM ((2^LORA_SPREADING_FACTOR)/125)*1000
-#define TPREAMBLE (LORA_PREAMBLE_LENGTH+4.25)*TSYM
-#define RXtime (2*TSYM)
-#define SLEEPtime (TPREAMBLE-RXtime)+(8*TSYM)
-
+#define RX_TIMEOUT_VALUE 3000
+#define TX_TIMEOUT_VALUE 3000
 
 // To get maximum power savings we use Radio.SetRxDutyCycle instead of Radio.Rx(0)
 // This function keeps the SX1261/2 chip most of the time in sleep and only wakes up short times
 // to catch incoming data packages
 // See document SX1261_AN1200.36_SX1261-2_RxDutyCycle_V1.0 ==>> https://semtech.my.salesforce.com/sfc/p/#E0000000JelG/a/2R0000001O3w/zsdHpRveb0_jlgJEedwalzsBaBnALfRq_MnJ25M_wtI
+//***** 10 min interval: 0.35 sec cad, 334 symbols ******
+//uint32_t duty_cycle_rx_time = 17 * 15.625; //4 symbols = 17  [DURATION OF rx Preamble SYMBOLS IN us / 15.625 ^2 ]
+//uint32_t duty_cycle_sleep_time = 1385 * 15.625; //330 symbols = 1385
+//*****  20 min interval: 0.75 sec, 732 symbols tot, 4 symbols CAD, 2 cad per cycle, 700 symbols sleep ******
+//uint32_t duty_cycle_rx_time = 17 * 15.625; //4 symbols = 17  [DURATION OF rx Preamble SYMBOLS IN us / 15.625 ^2 ]
+//uint32_t duty_cycle_sleep_time = 1153 * 15.625; //700 symbols = 244
+//*****  20 min interval: 0.75 sec, 585 symbols tot, 4 symbols CAD, 1 cad per cycle, 550 symbols sleep ******
 uint32_t duty_cycle_rx_time = 17 * 15.625; //4 symbols = 17  [DURATION OF rx Preamble SYMBOLS IN us / 15.625 ^2 ]
-uint32_t duty_cycle_sleep_time = 1385 * 15.625; //338 symbols = 1385
+uint32_t duty_cycle_sleep_time = 2306 * 15.625; //550 symbols = 244
 
 // DIO1 pin on RAK4631
 #define PIN_LORA_DIO_1 47
@@ -158,13 +172,19 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 		int rcvRxPayloadIndex = size / sizeof(txPayload); //dynamic index of received payload
 		uint8_t PldBuffer [size]; //create received pld buffer
 		memcpy(&PldBuffer[0], payload, size); //copy content into buffer 
+		#ifdef ENCRYPT
+			stream_cipher((char*)PldBuffer, KEY, size ); //decrypt data
+		#endif
 		uint8_t receivedPldPrevID = PldBuffer [(rcvRxPayloadIndex-1) * sizeof(txPayload)]; //store previous package id
 
 		/*If the ID of the received package is NODEID-1 copy content
 		else write to debug message*/
-		if (receivedPldPrevID == (NODEID-1) ) 
-		{
-					
+		if ( (receivedPldPrevID == (NODEID-1) )  ) 
+		{	
+			//fill received package metadata
+			txPayload.rssi_last = -1 * rssi;
+			txPayload.snr_last = snr;
+
 			#if MYLOG_LOG_LEVEL > MYLOG_LOG_LEVEL_NONE //Print payload to debug
 				myLog_d("received package from node ID %i", receivedPldPrevID);
 				myLog_d("Copying %i bytes into the PldArray!", size);
@@ -172,26 +192,20 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 				myLog_d("snr: %d dB", txPayload.snr_last );
 				delay(DEFWAIT);
 
-				//Print payload to debug
-				char rcvdData[256 * 4] = {0};
-				int index = 0;
-				for (int idx = 0; idx < (size * 3); idx += 3)
-				{
-					//sprintf(&rcvdData[idx], "%02X ", payload[index++]); //print in hex with leading zeros
-					sprintf(&rcvdData[idx], "%02x ", payload[index++]);
-				}
-				myLog_d(rcvdData);
+				//Print encrpted data payload to debug
+				myLog_d("Received encrypted payload");
+				printPayloads(payload, size);
+
+				//print decrypted data
+				myLog_d("Received decrypted payload");
+				printPayloads(PldBuffer, size);
+
 				delay(DEFWAIT);	
 			#endif
-			/*
+			
 			pldWrap.wrSize = size; //update wrapper size with received packet size
 			//copy received payload 
-			memcpy(&PldArray[0], payload, size); 
-			
-			//fill received package metadata
-			txPayload.rssi_last = -1 * rssi;
-			txPayload.snr_last = snr;
-			*/
+			memcpy(&PldArray[0], PldBuffer, size); 
 		}
 		else 
 		{

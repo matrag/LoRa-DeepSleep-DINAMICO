@@ -17,6 +17,7 @@
 	extern LIS3DH accSensor;
 	bool initACC(void);
 	void clearAccInt(void);
+	void accLowPower(void);
 	void calculateTilt(float xacc, float yacc, float zacc, uint8_t * xinc, uint8_t * yinc, uint8_t * zinc);
 	extern SemaphoreHandle_t loopEnable;
 
@@ -59,23 +60,27 @@
 	#define RAD_WAIT 660000
 
 //chain elements definitions
+	//#define RAD_NODE //define if the node is a radiation monitor or normal node
+	//#define NODEID_RAD 101
+
 	//node IDentifier
-	#define NODEID 3
-	// LoRa stuff
+	#define NODEID 80
 	#if NODEID == 1 	//check if the node is a relay or not
 		#define TX_ONLY
 	#else
 		#define IS_CHAIN_ELEMENT //UNCOMMENT if the node is a chain element (excl. first  node)
 	#endif
 
-	#define RAD_NODE //define if the node is a radiation monitor or normal node
-
 	/* Time the device is sleeping in milliseconds for chain elements */
-	#define SLEEP_TIME_CHAIN 600 * 1000
+	#define SLEEP_TIME_CHAIN  10000//20 * 60 * 1000
 	/* Time the device is sleeping in milliseconds for FIRST node element */
-	#define SLEEP_TIME 600 * 1000
+	#define SLEEP_TIME 10000//20 * 60 * 1000
 	/* Time the device is sleeping in milliseconds for RAD node element */
-	#define SLEEP_TIME_RAD 600 * 1000
+	#define SLEEP_TIME_RAD 360 * 60 * 1000 //600 * 1000
+
+//encryption stuff
+	#define ENCRYPT
+	#define KEY 123
 
 struct __attribute__((packed)) TxdPayload{
 		uint8_t id = NODEID;	             // Device ID
@@ -127,6 +132,10 @@ extern uint8_t rcvdDataLen;
 extern uint8_t eventType;
 extern SoftwareTimer taskWakeupTimer;
 extern void handleLoopActions();
+extern void printPayloads(uint8_t *payload, int size);
+
+//Encryption stuff
+void stream_cipher( char text [], unsigned long keyseed, size_t pckSize);
 
 
 
